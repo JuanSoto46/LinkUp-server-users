@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import { auth, db } from '../config/firebase';
-import  verifyIdToken  from '../middleware/auth';
+import { verifyIdToken } from '../middleware/auth';
 
 const router = Router();
 router.use(verifyIdToken);
@@ -15,34 +15,44 @@ router.use(verifyIdToken);
  * @param {string} uid - User ID
  * @returns {Object} User profile data
  */
-router.get('/:uid', async (req, res, next) => {
+router.get('/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
     const requestUid = (req as any).uid;
 
+    console.log('GET User Profile - Request UID:', requestUid, 'Target UID:', uid);
+
     // Users can only access their own data
     if (uid !== requestUid) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ 
+        success: false,
+        error: 'Access denied. You can only access your own profile.' 
+      });
     }
 
     const doc = await db.collection('users').doc(uid).get();
     
     if (!doc.exists) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
     }
 
     const userData = doc.data();
-    
-    // Remove sensitive data
-    const { password, ...safeUserData } = userData || {};
+    console.log('User data from Firestore:', userData);
 
     res.json({
       success: true,
-      user: safeUserData
+      user: userData
     });
 
   } catch (error: any) {
-    next(error);
+    console.error('Get user error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to get user data' 
+    });
   }
 });
 
@@ -53,13 +63,16 @@ router.get('/:uid', async (req, res, next) => {
  * @param {Object} body - Updated user data
  * @returns {Object} Success message
  */
-router.put('/:uid', async (req, res, next) => {
+router.put('/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
     const requestUid = (req as any).uid;
 
     if (uid !== requestUid) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ 
+        success: false,
+        error: 'Access denied' 
+      });
     }
 
     const allowedFields = ['firstName', 'lastName', 'age', 'email'];
@@ -73,7 +86,10 @@ router.put('/:uid', async (req, res, next) => {
     });
 
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ error: 'No valid fields to update' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'No valid fields to update' 
+      });
     }
 
     updateData.updatedAt = new Date().toISOString();
@@ -96,7 +112,11 @@ router.put('/:uid', async (req, res, next) => {
     });
 
   } catch (error: any) {
-    next(error);
+    console.error('Update user error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update user' 
+    });
   }
 });
 
@@ -106,13 +126,16 @@ router.put('/:uid', async (req, res, next) => {
  * @param {string} uid - User ID
  * @returns {Object} Success message
  */
-router.delete('/:uid', async (req, res, next) => {
+router.delete('/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
     const requestUid = (req as any).uid;
 
     if (uid !== requestUid) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ 
+        success: false,
+        error: 'Access denied' 
+      });
     }
 
     // Delete from Firestore
@@ -127,7 +150,11 @@ router.delete('/:uid', async (req, res, next) => {
     });
 
   } catch (error: any) {
-    next(error);
+    console.error('Delete user error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete user' 
+    });
   }
 });
 

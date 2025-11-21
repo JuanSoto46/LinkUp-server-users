@@ -36,7 +36,52 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user in Firebase Auth
+    // Check if user already exists in Firebase Auth
+    try {
+      const existingUser = await auth.getUserByEmail(email);
+      
+      // User exists, check if they have manual provider
+      const userDoc = await db.collection('users').doc(existingUser.uid).get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const providers = userData?.providers || [];
+        
+        if (providers.includes('manual')) {
+          return res.status(400).json({ 
+            success: false,
+            error: 'Email already registered with manual login' 
+          });
+        } else {
+          // User exists with OAuth, add manual provider
+          await db.collection('users').doc(existingUser.uid).update({
+            providers: [...providers, 'manual'],
+            updatedAt: new Date().toISOString()
+          });
+
+          // Update password for existing user
+          await auth.updateUser(existingUser.uid, { password });
+
+          return res.json({
+            success: true,
+            user: {
+              uid: existingUser.uid,
+              firstName: userData?.firstName || '',
+              lastName: userData?.lastName || '',
+              age: userData?.age || null,
+              email: existingUser.email
+            }
+          });
+        }
+      }
+    } catch (error: any) {
+      // User doesn't exist in Firebase Auth, proceed with creation
+      if (error.code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
+
+    // Create new user in Firebase Auth
     const userRecord = await auth.createUser({
       email,
       password,
@@ -71,6 +116,14 @@ router.post('/register', async (req, res) => {
 
   } catch (error: any) {
     console.error('Registration error:', error);
+    
+    if (error.code === 'auth/email-already-exists') {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Email already registered. Try logging in instead.' 
+      });
+    }
+    
     res.status(400).json({ 
       success: false,
       error: error.message || 'Failed to register user'
@@ -80,7 +133,7 @@ router.post('/register', async (req, res) => {
 
 /**
  * Manual login endpoint
- * @route POST /api/auth/login
+ * @route POST /api/auth/register
  * @param {string} email - User's email
  * @param {string} password - User's password
  * @returns {Object} User data and token
@@ -96,17 +149,31 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // In a real implementation, you would verify credentials
-    // For Firebase, this is typically handled client-side
-    // This endpoint would verify custom tokens or use Firebase Admin
+    // Get user by email
     const userRecord = await auth.getUserByEmail(email);
     
+    // Verify the user has manual provider
+    const userDoc = await db.collection('users').doc(userRecord.uid).get();
+    
+    if (!userDoc.exists) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'User not found' 
+      });
+    }
+
+    const userData = userDoc.data();
+    const providers = userData?.providers || [];
+    
+    if (!providers.includes('manual')) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Please use your original sign-in method' 
+      });
+    }
+
     // Generate custom token for the user
     const customToken = await auth.createCustomToken(userRecord.uid);
-    
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(userRecord.uid).get();
-    const userData = userDoc.data();
 
     res.json({
       success: true,
@@ -116,6 +183,14 @@ router.post('/login', async (req, res) => {
 
   } catch (error: any) {
     console.error('Login error:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Invalid email or password' 
+      });
+    }
+    
     res.status(401).json({ 
       success: false,
       error: 'Invalid credentials' 
