@@ -17,7 +17,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({ 
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173'],
+  origin: process.env.CORS_ORIGIN?.split(',') || [
+    'http://localhost:5173',
+    'https://link-up-frontend-tau.vercel.app'   // Frontend URL
+  ],
   credentials: true 
 }));
 

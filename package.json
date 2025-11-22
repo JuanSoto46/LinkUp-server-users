@@ -8,7 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "clean": "rd /s /q dist",
+    "clean": "rm -rf dist",
     "prestart": "npm run build"
   },
   "keywords": ["video-platform", "backend", "firebase", "express"],
