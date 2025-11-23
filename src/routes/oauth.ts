@@ -92,6 +92,14 @@ router.post('/google', async (req, res) => {
   }
 });
 
+
+/**
+ * Verify Github OAuth token and create/update user
+ * @route POST /api/oauth/github
+ * @param {string} token - Github OAuth token
+ * @param {Object} userProfile - Github user profile
+ * @returns {Object} User data and token
+ */
 router.post('/github', async (req,res) => {
   try{
     const {token, userProfile} = req.body;  

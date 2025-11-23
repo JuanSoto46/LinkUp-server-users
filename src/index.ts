@@ -14,10 +14,19 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? true }));
 
+// Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Auth routes
 app.use("/api/auth", authRoutes);
+
+// Users routes
 app.use("/api/users", usersRoutes);
+
+// OAuth routes
 app.use("/api/oauth", oauthRoutes);
+
+// Meetings routes
 app.use("/api/meetings", meetingsRoutes);
 
 const port = process.env.PORT || 8080;
