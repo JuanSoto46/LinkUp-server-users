@@ -4,8 +4,10 @@
  */
 import { Router } from 'express';
 import { auth, db } from '../config/firebase';
+import { userDAO } from '../dao/userDAO';
 
 const router = Router();
+
 
 /**
  * Register a new user
@@ -19,7 +21,7 @@ const router = Router();
  */
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, age, email, password } = req.body;
+    const { firstName, lastName, age, email, password } = req.body ;
     
     // Validation
     if (!email || !password) {
@@ -28,12 +30,23 @@ router.post('/register', async (req, res) => {
         error: 'Email and password are required' 
       });
     }
+    
+    // Validate email format
+    const emailRule: RegExp = /^\S+@\S+\.\S+$/;
+    if(!emailRule.test(email)) {
+        return res.status(400).json({ message: "Email format is invalid. Please enter a valid email address." });
+    }
 
-    if (password.length < 6) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Password must be at least 6 characters long' 
-      });
+    // Validate password format
+    const passwordRule: RegExp = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if(!passwordRule.test(password)) {
+        return res.status(400).json({ message: "Password must have at least 8 characters, one uppercase, one lowercase, one number and one special character." });
+    }
+
+    // Validate age if it exists with manual register
+    const ageExists = age ? Number(age) : null;
+    if (ageExists < 13 && ageExists != null) {
+        return res.status(400).json({ message: "Age must be at least 13 years old." });
     }
 
     // Check if user already exists in Firebase Auth
@@ -53,15 +66,11 @@ router.post('/register', async (req, res) => {
             error: 'Email already registered with manual login' 
           });
         } else {
-          // User exists with OAuth, add manual provider
-          await db.collection('users').doc(existingUser.uid).update({
-            providers: [...providers, 'manual'],
-            updatedAt: new Date().toISOString()
-          });
-
           // Update password for existing user
           await auth.updateUser(existingUser.uid, { password });
 
+          // User exists with OAuth, add manual provider
+          const user = await userDAO.update(existingUser.uid, { providers: [...providers, 'manual'], updatedAt: new Date().toISOString() });
           return res.json({
             success: true,
             user: {
@@ -101,12 +110,13 @@ router.post('/register', async (req, res) => {
       providers: ['manual']
     };
 
-    await db.collection('users').doc(userRecord.uid).set(userData);
+    // Store user data in Firestore using userDAO
+    const user = await userDAO.create(userData);
 
     res.status(201).json({
       success: true,
       user: {
-        uid: userRecord.uid,
+        uid: userData.uid,
         firstName: userData.firstName,
         lastName: userData.lastName,
         age: userData.age,
