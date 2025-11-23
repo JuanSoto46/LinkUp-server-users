@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import { db } from '../config/firebase';
-import  verifyIdToken  from '../middleware/auth';
+import { verifyIdToken } from '../middleware/auth';
 
 const router = Router();
 router.use(verifyIdToken);

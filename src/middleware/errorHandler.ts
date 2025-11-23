@@ -1,23 +1,16 @@
-/**
- * Global error handling middleware
- * @module ErrorHandler
- */
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from "express";
 
 /**
- * Custom error interface
+ * Standardized error interface
  */
-interface AppError extends Error {
+export interface AppError extends Error {
   statusCode?: number;
-  status?: string;
+  code?: string | number;
+  details?: string;
 }
 
 /**
- * Global error handler middleware
- * @param err - Error object
- * @param req - Express request
- * @param res - Express response
- * @param next - Express next function
+ * Global Error Handler Middleware
  */
 export function errorHandler(
   err: AppError,
@@ -25,26 +18,81 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
-  let error = { ...err };
-  error.message = err.message;
+  
+  // Normalize error object
+  const error: AppError = {
+    name: err.name || "InternalError",
+    message: err.message || "Internal server error",
+    statusCode: err.statusCode || 500,
+    code: err.code,
+    stack: err.stack,
+    details: err.details,
+  };
 
-  console.error('Error:', err);
-
-  // Firebase Auth errors
-  if (err.message?.includes('auth/')) {
-    error.statusCode = 400;
-    error.message = 'Authentication error';
+  /**
+   *  FIREBASE AUTH ERRORS
+   */
+  if (err.code?.toString().startsWith("auth/")) {
+    error.statusCode = 401;
+    error.message = "Authentication failed";
+    error.name = "FirebaseAuthError";
   }
 
-  // Firestore errors
-  if (err.message?.includes('firestore/')) {
+  /**
+   * FIRESTORE ERRORS
+   */
+  if (err.code?.toString().startsWith("firestore/")) {
     error.statusCode = 500;
-    error.message = 'Database error';
+    error.message = "Firestore database error";
+    error.name = "FirestoreError";
   }
 
-  res.status(error.statusCode || 500).json({
+  /**
+   * JWT ERRORS
+   */
+  if (err.name === "JsonWebTokenError") {
+    error.statusCode = 401;
+    error.message = "Invalid token";
+  }
+
+  if (err.name === "TokenExpiredError") {
+    error.statusCode = 401;
+    error.message = "Token expired";
+  }
+
+  /**
+   * JSON PARSE ERRORS
+   */
+  if (err instanceof SyntaxError && "body" in err) {
+    error.statusCode = 400;
+    error.message = "Invalid JSON body";
+  }
+
+  /**
+   *  RATE LIMIT ERRORS
+   */
+  if (err.name === "RateLimitError") {
+    error.statusCode = 429;
+    error.message = "Too many requests";
+  }
+
+  /**
+   *  DEFAULT FALLBACK
+   */
+  const status = error.statusCode;
+
+  res.status(status).json({
     success: false,
-    error: error.message || 'Server Error',
-    timestamp: new Date().toISOString()
+    error: {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+    },
+    ...(process.env.NODE_ENV === "development" && {
+      stack: err.stack,
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      method: req.method,
+    }),
   });
 }

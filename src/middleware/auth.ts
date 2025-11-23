@@ -4,6 +4,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { auth } from '../config/firebase';
+import rateLimit from 'express-rate-limit';
 
 /**
  * Extended Request interface to include UID
@@ -18,7 +19,7 @@ interface AuthenticatedRequest extends Request {
  * @param res - Express response object  
  * @param next - Express next function
  */
-export async function verifyIdToken(
+async function verifyIdToken(
   req: AuthenticatedRequest, 
   res: Response, 
   next: NextFunction
@@ -67,4 +68,21 @@ export async function verifyIdToken(
   }
 }
 
-export default verifyIdToken;
+const rateLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    max: 5, // More restrictive in production
+    message: {
+      success: false,
+      message: "Too many requests. Please try again later."
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Use the default generator that handles IPv6 correctly
+    skip: (req: Request) => {
+      // Skip rate limiting in development with environment variable
+      return process.env.NODE_ENV === 'development';
+    }
+  });
+
+
+export { rateLimiter, verifyIdToken };

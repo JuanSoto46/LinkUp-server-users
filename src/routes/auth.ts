@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { auth, db } from '../config/firebase';
 import { userDAO } from '../dao/userDAO';
+import { rateLimiter } from '../middleware/auth';
 
 const router = Router();
 
@@ -148,7 +149,8 @@ router.post('/register', async (req, res) => {
  * @param {string} password - User's password
  * @returns {Object} User data and token
  */
-router.post('/login', async (req, res) => {
+
+router.post('/login', rateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
