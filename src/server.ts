@@ -11,6 +11,7 @@ import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import meetingsRoutes from './routes/meetings';
 import oauthRoutes from './routes/oauth';
+import logger from './middleware/logger';
 
 const app = express();
 
@@ -23,7 +24,7 @@ app.use(cors({
   ],
   credentials: true 
 }));
-
+app.use(logger);
 // Health check endpoint
 /**
  * Health check route

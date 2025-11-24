@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { auth, db } from '../config/firebase';
 import { verifyIdToken } from '../middleware/auth';
+import { userDAO } from '../dao/userDAO';
 
 const router = Router();
 router.use(verifyIdToken);
@@ -95,7 +96,7 @@ router.put('/:uid', async (req, res) => {
     updateData.updatedAt = new Date().toISOString();
 
     // Update Firestore
-    await db.collection('users').doc(uid).update(updateData);
+    const doc =  await userDAO.update(uid, updateData);
 
     // Update Firebase Auth if email is being changed
     if (updateData.email) {
@@ -139,7 +140,7 @@ router.delete('/:uid', async (req, res) => {
     }
 
     // Delete from Firestore
-    await db.collection('users').doc(uid).delete();
+    await userDAO.delete(uid);
     
     // Delete from Firebase Auth
     await auth.deleteUser(uid);
