@@ -39,7 +39,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Validate password format, this expression accepts chars like ñ, á etc.
-    const passwordRule: RegExp = /^(?=.*\p{Ll})(?=.*\p{Lu})(?=.*\d)(?=.*[@$!%*?&])[\p{L}\d@$!%*?&]{8,}$/u;
+    const passwordRule: RegExp =  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
 
     if(!passwordRule.test(password)) {
         return res.status(400).json({ message: "Password must have at least 8 characters, one uppercase, one lowercase, one number and one special character." });
