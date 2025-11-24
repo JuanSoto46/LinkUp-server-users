@@ -78,4 +78,138 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+/**
+ * Get a specific meeting by ID
+ * @route GET /api/meetings/:id
+ * @returns {Object} Meeting data
+ */
+router.get('/:id', async (req, res, next) => {
+  try {
+    const ownerUid = (req as any).uid as string;
+    const { id } = req.params;
+
+    const doc = await db.collection('meetings').doc(id).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Meeting not found'
+      });
+    }
+
+    const meeting = doc.data();
+
+    // Verificar que el usuario es el propietario o participante
+    if (meeting?.ownerUid !== ownerUid && !meeting?.participants?.includes(ownerUid)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    res.json({
+      success: true,
+      meeting: {
+        id: doc.id,
+        ...meeting
+      }
+    });
+
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+/**
+ * Update a meeting
+ * @route PUT /api/meetings/:id
+ */
+router.put('/:id', async (req, res, next) => {
+  try {
+    const ownerUid = (req as any).uid as string;
+    const { id } = req.params;
+    const { title, scheduledAt, description, status } = req.body;
+
+    const docRef = db.collection('meetings').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Meeting not found'
+      });
+    }
+
+    const meeting = doc.data();
+
+    if (meeting?.ownerUid !== ownerUid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    const updateData = {
+      ...(title !== undefined && { title }),
+      ...(scheduledAt !== undefined && { scheduledAt }),
+      ...(description !== undefined && { description }),
+      ...(status !== undefined && { status }),
+      updatedAt: new Date().toISOString()
+    };
+
+    await docRef.update(updateData);
+
+    res.json({
+      success: true,
+      meeting: {
+        id,
+        ...meeting,
+        ...updateData
+      }
+    });
+
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+/**
+ * Delete a meeting
+ * @route DELETE /api/meetings/:id
+ */
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const ownerUid = (req as any).uid as string;
+    const { id } = req.params;
+
+    const doc = await db.collection('meetings').doc(id).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Meeting not found'
+      });
+    }
+
+    const meeting = doc.data();
+
+    if (meeting?.ownerUid !== ownerUid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    await db.collection('meetings').doc(id).delete();
+
+    res.json({
+      success: true,
+      message: 'Meeting deleted successfully'
+    });
+
+  } catch (error: any) {
+    next(error);
+  }
+});
+
 export default router;
